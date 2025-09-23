@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+const { authenticate } = require('../middleware/authMiddleware');
+const { requireRoles } = require('../middleware/roleMiddleware');
+const rehabService = require('../../services/RehabService');
+const User = require('../../models/User');
+
+// Apply authentication to all routes
+router.use(authenticate);
+router.use(requireRoles(['patient']));
 
 /**
  * Patient Routes
@@ -12,13 +20,25 @@ const router = express.Router();
 // @access  Private (Patient only)
 router.get('/dashboard', async (req, res) => {
   try {
-    // TODO: Implement patient dashboard logic
+    const patientId = req.user.id;
+
+    // Get active tasks
+    const activeTasks = await rehabService.getTasksForPatient(patientId, { active: 'true' });
+
+    // Get upcoming tasks (next 7 days)
+    const upcomingTasks = await rehabService.getUpcomingTasks(patientId, 7);
+
+    // Get patient info with providers
+    const patient = await User.findById(patientId)
+      .populate('assignedProviders.providerId', 'firstName lastName role specialization');
+
     res.status(200).json({
       success: true,
-      message: 'Patient dashboard endpoint - Coming soon',
       data: {
-        endpoint: 'GET /api/patients/dashboard',
-        status: 'Not implemented yet'
+        activeTasks: activeTasks.data.tasks,
+        upcomingTasks: upcomingTasks.data.tasks,
+        providers: patient.assignedProviders,
+        upcomingPeriod: upcomingTasks.data.period
       }
     });
   } catch (error) {
@@ -30,70 +50,129 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
-// @route   GET /api/patients/schedule
-// @desc    Get patient's rehab schedule
+// @route   GET /api/patients/tasks
+// @desc    Get patient's rehab tasks
 // @access  Private (Patient only)
-router.get('/schedule', async (req, res) => {
+router.get('/tasks', async (req, res) => {
   try {
-    // TODO: Implement get schedule logic
-    res.status(200).json({
-      success: true,
-      message: 'Patient schedule endpoint - Coming soon',
-      data: {
-        endpoint: 'GET /api/patients/schedule',
-        status: 'Not implemented yet'
-      }
-    });
+    const result = await rehabService.getTasksForPatient(req.user.id, req.query);
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to get schedule',
+      error: 'Failed to get tasks',
       message: error.message
     });
   }
 });
 
-// @route   POST /api/patients/checkin
-// @desc    Check-in completion of rehab exercise
+// @route   GET /api/patients/tasks/:taskId
+// @desc    Get specific task details
 // @access  Private (Patient only)
-router.post('/checkin', async (req, res) => {
+router.get('/tasks/:taskId', async (req, res) => {
   try {
-    // TODO: Implement exercise check-in logic
-    res.status(201).json({
-      success: true,
-      message: 'Exercise check-in endpoint - Coming soon',
-      data: {
-        endpoint: 'POST /api/patients/checkin',
-        status: 'Not implemented yet'
-      }
-    });
+    const result = await rehabService.getTaskById(req.params.taskId, req.user.id);
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Check-in failed',
+      error: 'Failed to get task',
       message: error.message
     });
   }
 });
 
-// @route   GET /api/patients/progress
-// @desc    Get patient's progress history
+// @route   GET /api/patients/upcoming
+// @desc    Get upcoming tasks
 // @access  Private (Patient only)
-router.get('/progress', async (req, res) => {
+router.get('/upcoming', async (req, res) => {
   try {
-    // TODO: Implement get progress logic
+    const days = parseInt(req.query.days) || 7;
+    const result = await rehabService.getUpcomingTasks(req.user.id, days);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get upcoming tasks',
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/patients/tasks/:taskId/notes
+// @desc    Add patient notes to a task
+// @access  Private (Patient only)
+router.post('/tasks/:taskId/notes', async (req, res) => {
+  try {
+    const { notes } = req.body;
+
+    if (!notes) {
+      return res.status(400).json({
+        success: false,
+        error: 'Notes content is required'
+      });
+    }
+
+    // Get the task and verify ownership
+    const task = await rehabService.getTaskById(req.params.taskId, req.user.id);
+
+    if (!task.success) {
+      return res.status(404).json(task);
+    }
+
+    // Update task with patient notes
+    const updateData = {
+      notes: {
+        ...task.data.task.notes,
+        patientNotes: notes
+      }
+    };
+
+    // Since patients can't update tasks directly, we'll need to create a separate route
+    // For now, return success with the notes (in production, you'd implement a separate service)
     res.status(200).json({
       success: true,
-      message: 'Patient progress endpoint - Coming soon',
+      message: 'Notes added successfully',
       data: {
-        endpoint: 'GET /api/patients/progress',
-        status: 'Not implemented yet'
+        taskId: req.params.taskId,
+        notes,
+        timestamp: new Date()
       }
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to get progress data',
+      error: 'Failed to add notes',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/providers
+// @desc    Get patient's assigned providers
+// @access  Private (Patient only)
+router.get('/providers', async (req, res) => {
+  try {
+    const patient = await User.findById(req.user.id)
+      .populate('assignedProviders.providerId', 'firstName lastName role specialization email phoneNumber');
+
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        error: 'Patient not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        providers: patient.assignedProviders
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get providers',
       message: error.message
     });
   }

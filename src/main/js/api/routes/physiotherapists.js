@@ -1,5 +1,13 @@
 const express = require('express');
 const router = express.Router();
+const { authenticate } = require('../middleware/authMiddleware');
+const { requireRoles } = require('../middleware/roleMiddleware');
+const rehabService = require('../../services/RehabService');
+const User = require('../../models/User');
+
+// Apply authentication to all routes
+router.use(authenticate);
+router.use(requireRoles(['physiotherapist']));
 
 /**
  * Physiotherapist Routes
@@ -12,13 +20,28 @@ const router = express.Router();
 // @access  Private (Physiotherapist only)
 router.get('/dashboard', async (req, res) => {
   try {
-    // TODO: Implement physiotherapist dashboard logic
+    const physiotherapistId = req.user.id;
+
+    // Get task statistics
+    const stats = await rehabService.getTaskStatistics(physiotherapistId);
+
+    // Get assigned patients count
+    const physiotherapist = await User.findById(physiotherapistId).populate('assignedPatients');
+    const patientCount = physiotherapist.assignedPatients.length;
+
+    // Get recent tasks
+    const recentTasks = await rehabService.getTasksByPhysiotherapist(physiotherapistId, {
+      limit: 5,
+      sortBy: 'updatedAt',
+      sortOrder: 'desc'
+    });
+
     res.status(200).json({
       success: true,
-      message: 'Physiotherapist dashboard endpoint - Coming soon',
       data: {
-        endpoint: 'GET /api/physiotherapists/dashboard',
-        status: 'Not implemented yet'
+        statistics: stats.data,
+        patientCount,
+        recentTasks: recentTasks.data.tasks
       }
     });
   } catch (error) {
@@ -35,13 +58,20 @@ router.get('/dashboard', async (req, res) => {
 // @access  Private (Physiotherapist only)
 router.get('/patients', async (req, res) => {
   try {
-    // TODO: Implement get patients logic
+    const physiotherapist = await User.findById(req.user.id)
+      .populate('assignedPatients', 'firstName lastName email phoneNumber lastLogin');
+
+    if (!physiotherapist) {
+      return res.status(404).json({
+        success: false,
+        error: 'Physiotherapist not found'
+      });
+    }
+
     res.status(200).json({
       success: true,
-      message: 'Get assigned patients endpoint - Coming soon',
       data: {
-        endpoint: 'GET /api/physiotherapists/patients',
-        status: 'Not implemented yet'
+        patients: physiotherapist.assignedPatients
       }
     });
   } catch (error) {
@@ -76,47 +106,97 @@ router.get('/patients/:patientId', async (req, res) => {
   }
 });
 
-// @route   POST /api/physiotherapists/schedule
-// @desc    Create rehab schedule for patient
+// @route   POST /api/physiotherapists/tasks
+// @desc    Create rehab task for patient
 // @access  Private (Physiotherapist only)
-router.post('/schedule', async (req, res) => {
+router.post('/tasks', async (req, res) => {
   try {
-    // TODO: Implement create schedule logic
-    res.status(201).json({
-      success: true,
-      message: 'Create schedule endpoint - Coming soon',
-      data: {
-        endpoint: 'POST /api/physiotherapists/schedule',
-        status: 'Not implemented yet'
-      }
-    });
+    const result = await rehabService.createTask(req.user.id, req.body);
+    res.status(201).json(result);
   } catch (error) {
-    res.status(500).json({
+    res.status(400).json({
       success: false,
-      error: 'Failed to create schedule',
+      error: 'Failed to create task',
       message: error.message
     });
   }
 });
 
-// @route   PUT /api/physiotherapists/schedule/:scheduleId
-// @desc    Update existing rehab schedule
+// @route   GET /api/physiotherapists/tasks
+// @desc    Get all tasks created by physiotherapist
 // @access  Private (Physiotherapist only)
-router.put('/schedule/:scheduleId', async (req, res) => {
+router.get('/tasks', async (req, res) => {
   try {
-    // TODO: Implement update schedule logic
-    res.status(200).json({
-      success: true,
-      message: 'Update schedule endpoint - Coming soon',
-      data: {
-        endpoint: `PUT /api/physiotherapists/schedule/${req.params.scheduleId}`,
-        status: 'Not implemented yet'
-      }
-    });
+    const result = await rehabService.getTasksByPhysiotherapist(req.user.id, req.query);
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to update schedule',
+      error: 'Failed to get tasks',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/tasks/:taskId
+// @desc    Get specific task details
+// @access  Private (Physiotherapist only)
+router.get('/tasks/:taskId', async (req, res) => {
+  try {
+    const result = await rehabService.getTaskById(req.params.taskId, req.user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get task',
+      message: error.message
+    });
+  }
+});
+
+// @route   PUT /api/physiotherapists/tasks/:taskId
+// @desc    Update existing rehab task
+// @access  Private (Physiotherapist only)
+router.put('/tasks/:taskId', async (req, res) => {
+  try {
+    const result = await rehabService.updateTask(req.params.taskId, req.user.id, req.body);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: 'Failed to update task',
+      message: error.message
+    });
+  }
+});
+
+// @route   DELETE /api/physiotherapists/tasks/:taskId
+// @desc    Delete rehab task
+// @access  Private (Physiotherapist only)
+router.delete('/tasks/:taskId', async (req, res) => {
+  try {
+    const result = await rehabService.deleteTask(req.params.taskId, req.user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: 'Failed to delete task',
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/physiotherapists/tasks/:taskId/activate
+// @desc    Activate a draft task
+// @access  Private (Physiotherapist only)
+router.post('/tasks/:taskId/activate', async (req, res) => {
+  try {
+    const result = await rehabService.activateTask(req.params.taskId, req.user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: 'Failed to activate task',
       message: error.message
     });
   }
@@ -150,19 +230,28 @@ router.post('/feedback', async (req, res) => {
 // @access  Private (Physiotherapist only)
 router.get('/analytics', async (req, res) => {
   try {
-    // TODO: Implement get analytics logic
-    res.status(200).json({
-      success: true,
-      message: 'Get analytics endpoint - Coming soon',
-      data: {
-        endpoint: 'GET /api/physiotherapists/analytics',
-        status: 'Not implemented yet'
-      }
-    });
+    const result = await rehabService.getTaskStatistics(req.user.id);
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({
       success: false,
       error: 'Failed to get analytics',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/search
+// @desc    Search tasks
+// @access  Private (Physiotherapist only)
+router.get('/search', async (req, res) => {
+  try {
+    const result = await rehabService.searchTasks(req.query, req.user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to search tasks',
       message: error.message
     });
   }
