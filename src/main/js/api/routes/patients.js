@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticate } = require('../middleware/authMiddleware');
 const { requireRoles } = require('../middleware/roleMiddleware');
 const rehabService = require('../../services/RehabService');
+const progressService = require('../../services/ProgressService');
 const User = require('../../models/User');
 
 // Apply authentication to all routes
@@ -219,6 +220,139 @@ router.get('/notes', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get notes',
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/patients/progress
+// @desc    Record a new exercise session
+// @access  Private (Patient only)
+router.post('/progress', async (req, res) => {
+  try {
+    const result = await progressService.recordSession(req.user.id, req.body);
+    res.status(201).json(result);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: 'Failed to record session',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/progress
+// @desc    Get patient's progress history
+// @access  Private (Patient only)
+router.get('/progress', async (req, res) => {
+  try {
+    const result = await progressService.getProgressHistory(req.user.id, req.query);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get progress history',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/progress/:progressId
+// @desc    Get specific progress record
+// @access  Private (Patient only)
+router.get('/progress/:progressId', async (req, res) => {
+  try {
+    const Progress = require('../../models/Progress');
+    const progress = await Progress.findById(req.params.progressId)
+      .populate('rehabTask', 'title category')
+      .populate('patient', 'firstName lastName');
+
+    if (!progress) {
+      return res.status(404).json({
+        success: false,
+        error: 'Progress record not found'
+      });
+    }
+
+    if (progress.patient._id.toString() !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: { progress }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get progress record',
+      message: error.message
+    });
+  }
+});
+
+// @route   PUT /api/patients/progress/:progressId
+// @desc    Update a progress record
+// @access  Private (Patient only)
+router.put('/progress/:progressId', async (req, res) => {
+  try {
+    const result = await progressService.updateProgress(req.params.progressId, req.user.id, req.body);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: 'Failed to update progress record',
+      message: error.message
+    });
+  }
+});
+
+// @route   DELETE /api/patients/progress/:progressId
+// @desc    Delete a progress record
+// @access  Private (Patient only)
+router.delete('/progress/:progressId', async (req, res) => {
+  try {
+    const result = await progressService.deleteProgress(req.params.progressId, req.user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      error: 'Failed to delete progress record',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/analytics
+// @desc    Get patient's progress analytics
+// @access  Private (Patient only)
+router.get('/analytics', async (req, res) => {
+  try {
+    const result = await progressService.getProgressAnalytics(req.user.id, req.query);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get analytics',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/tasks/:taskId/progress
+// @desc    Get progress for a specific task
+// @access  Private (Patient only)
+router.get('/tasks/:taskId/progress', async (req, res) => {
+  try {
+    const result = await progressService.getTaskProgress(req.user.id, req.params.taskId);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get task progress',
       message: error.message
     });
   }

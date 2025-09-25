@@ -3,6 +3,7 @@ const router = express.Router();
 const { authenticate } = require('../middleware/authMiddleware');
 const { requireRoles } = require('../middleware/roleMiddleware');
 const rehabService = require('../../services/RehabService');
+const progressService = require('../../services/ProgressService');
 const User = require('../../models/User');
 
 // Apply authentication to all routes
@@ -252,6 +253,87 @@ router.get('/search', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to search tasks',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/progress
+// @desc    Get progress data for assigned patients
+// @access  Private (Physiotherapist only)
+router.get('/progress', async (req, res) => {
+  try {
+    const result = await progressService.getPatientProgressForProvider(req.user.id, req.query);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get patient progress',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/patients/:patientId/progress
+// @desc    Get specific patient's progress
+// @access  Private (Physiotherapist only)
+router.get('/patients/:patientId/progress', async (req, res) => {
+  try {
+    const filters = { patientId: req.params.patientId, ...req.query };
+    const result = await progressService.getPatientProgressForProvider(req.user.id, filters);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get patient progress',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/patients/:patientId/analytics
+// @desc    Get analytics for a specific patient
+// @access  Private (Physiotherapist only)
+router.get('/patients/:patientId/analytics', async (req, res) => {
+  try {
+    // Verify patient is assigned to this physiotherapist
+    const physiotherapist = await User.findById(req.user.id);
+    if (!physiotherapist.assignedPatients.includes(req.params.patientId)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied',
+        message: 'Patient is not assigned to you'
+      });
+    }
+
+    const result = await progressService.getProgressAnalytics(req.params.patientId, req.query);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get patient analytics',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/tasks/:taskId/progress
+// @desc    Get progress for a specific task
+// @access  Private (Physiotherapist only)
+router.get('/tasks/:taskId/progress', async (req, res) => {
+  try {
+    // First verify the task belongs to this physiotherapist
+    const task = await rehabService.getTaskById(req.params.taskId, req.user.id);
+    if (!task.success) {
+      return res.status(404).json(task);
+    }
+
+    const result = await progressService.getTaskProgress(task.data.task.assignedTo._id, req.params.taskId);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get task progress',
       message: error.message
     });
   }
