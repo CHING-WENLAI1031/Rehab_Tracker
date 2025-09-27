@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/authMiddleware');
 const { requireRoles } = require('../middleware/roleMiddleware');
+const { validateQuery, validateParams, validateBody } = require('../middleware/validationMiddleware');
 const rehabService = require('../../services/RehabService');
 const progressService = require('../../services/ProgressService');
+const patientDashboardService = require('../../services/PatientDashboardService');
 const User = require('../../models/User');
 
 // Apply authentication to all routes
@@ -17,9 +19,25 @@ router.use(requireRoles(['patient']));
  */
 
 // @route   GET /api/patients/dashboard
-// @desc    Get patient dashboard data
+// @desc    Get comprehensive patient dashboard data with analytics and progress summaries
 // @access  Private (Patient only)
 router.get('/dashboard', async (req, res) => {
+  try {
+    const result = await patientDashboardService.getDashboardOverview(req.user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get dashboard data',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/dashboard/overview
+// @desc    Get basic dashboard overview (lightweight version)
+// @access  Private (Patient only)
+router.get('/dashboard/overview', async (req, res) => {
   try {
     const patientId = req.user.id;
 
@@ -45,7 +63,102 @@ router.get('/dashboard', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to get dashboard data',
+      error: 'Failed to get dashboard overview',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/dashboard/active-tasks
+// @desc    Get active tasks with detailed progress indicators
+// @access  Private (Patient only)
+router.get('/dashboard/active-tasks', async (req, res) => {
+  try {
+    const result = await patientDashboardService.getActiveTasksSummary(req.user.id);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get active tasks summary',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/dashboard/recent-progress
+// @desc    Get recent progress summary (last 7 days)
+// @access  Private (Patient only)
+router.get('/dashboard/recent-progress', validateQuery(), async (req, res) => {
+  try {
+    const result = await patientDashboardService.getRecentProgressSummary(req.user.id);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get recent progress summary',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/dashboard/achievements
+// @desc    Get achievement statistics and milestones
+// @access  Private (Patient only)
+router.get('/dashboard/achievements', async (req, res) => {
+  try {
+    const result = await patientDashboardService.getAchievementStats(req.user.id);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get achievement statistics',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/dashboard/weekly-stats
+// @desc    Get weekly progress statistics
+// @access  Private (Patient only)
+router.get('/dashboard/weekly-stats', async (req, res) => {
+  try {
+    const result = await patientDashboardService.getWeeklyProgressStats(req.user.id);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get weekly statistics',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/patients/dashboard/overall-progress
+// @desc    Get overall progress summary since start
+// @access  Private (Patient only)
+router.get('/dashboard/overall-progress', async (req, res) => {
+  try {
+    const result = await patientDashboardService.getOverallProgressSummary(req.user.id);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get overall progress summary',
       message: error.message
     });
   }

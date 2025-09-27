@@ -18,6 +18,7 @@ const authRoutes = require('./api/routes/auth');
 const patientRoutes = require('./api/routes/patients');
 const physiotherapistRoutes = require('./api/routes/physiotherapists');
 const doctorRoutes = require('./api/routes/doctors');
+const commentRoutes = require('./api/routes/comments');
 
 const app = express();
 const server = http.createServer(app);
@@ -68,6 +69,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/physiotherapists', physiotherapistRoutes);
 app.use('/api/doctors', doctorRoutes);
+app.use('/api/comments', commentRoutes);
 
 // Socket.io for real-time features
 io.on('connection', (socket) => {
@@ -87,6 +89,19 @@ io.on('connection', (socket) => {
   // Handle schedule changes
   socket.on('schedule-change', (data) => {
     socket.to(data.room).emit('schedule-changed', data);
+  });
+
+  // Handle comment updates
+  socket.on('comment-added', (data) => {
+    socket.to(data.room).emit('comment-updated', data);
+  });
+
+  socket.on('comment-reaction', (data) => {
+    socket.to(data.room).emit('reaction-updated', data);
+  });
+
+  socket.on('comment-reply', (data) => {
+    socket.to(data.room).emit('reply-added', data);
   });
 
   socket.on('disconnect', () => {

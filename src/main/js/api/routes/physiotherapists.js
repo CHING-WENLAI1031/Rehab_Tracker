@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/authMiddleware');
 const { requireRoles } = require('../middleware/roleMiddleware');
+const { validateQuery, validateParams, validateBody } = require('../middleware/validationMiddleware');
 const rehabService = require('../../services/RehabService');
 const progressService = require('../../services/ProgressService');
+const physiotherapistWorkflowService = require('../../services/PhysiotherapistWorkflowService');
 const User = require('../../models/User');
 
 // Apply authentication to all routes
@@ -17,9 +19,25 @@ router.use(requireRoles(['physiotherapist']));
  */
 
 // @route   GET /api/physiotherapists/dashboard
-// @desc    Get physiotherapist dashboard data
+// @desc    Get comprehensive physiotherapist workflow dashboard
 // @access  Private (Physiotherapist only)
 router.get('/dashboard', async (req, res) => {
+  try {
+    const result = await physiotherapistWorkflowService.getWorkflowDashboard(req.user.id);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get workflow dashboard',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/dashboard/overview
+// @desc    Get basic dashboard overview (lightweight version)
+// @access  Private (Physiotherapist only)
+router.get('/dashboard/overview', async (req, res) => {
   try {
     const physiotherapistId = req.user.id;
 
@@ -49,6 +67,119 @@ router.get('/dashboard', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get dashboard data',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/patients/overview
+// @desc    Get patient overview with risk assessment and analytics
+// @access  Private (Physiotherapist only)
+router.get('/patients/overview', async (req, res) => {
+  try {
+    const result = await physiotherapistWorkflowService.getPatientOverview(req.user.id);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get patient overview',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/alerts
+// @desc    Get patient alerts and notifications
+// @access  Private (Physiotherapist only)
+router.get('/alerts', async (req, res) => {
+  try {
+    const result = await physiotherapistWorkflowService.getPatientAlerts(req.user.id);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get patient alerts',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/deadlines
+// @desc    Get upcoming deadlines and schedule conflicts
+// @access  Private (Physiotherapist only)
+router.get('/deadlines', validateQuery(), async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 14;
+    const result = await physiotherapistWorkflowService.getUpcomingDeadlines(req.user.id, days);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get upcoming deadlines',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/workload
+// @desc    Get workload analytics and capacity planning
+// @access  Private (Physiotherapist only)
+router.get('/workload', async (req, res) => {
+  try {
+    const result = await physiotherapistWorkflowService.getWorkloadAnalytics(req.user.id);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get workload analytics',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/activity
+// @desc    Get recent activity feed
+// @access  Private (Physiotherapist only)
+router.get('/activity', validateQuery(), async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    const result = await physiotherapistWorkflowService.getRecentActivity(req.user.id, limit);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get recent activity',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/physiotherapists/patients/:patientId/management
+// @desc    Get detailed patient management information
+// @access  Private (Physiotherapist only)
+router.get('/patients/:patientId/management', validateParams(['patientId']), async (req, res) => {
+  try {
+    const result = await physiotherapistWorkflowService.getPatientManagementDetails(req.user.id, req.params.patientId);
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get patient management details',
       message: error.message
     });
   }
