@@ -19,6 +19,11 @@ const patientRoutes = require('./api/routes/patients');
 const physiotherapistRoutes = require('./api/routes/physiotherapists');
 const doctorRoutes = require('./api/routes/doctors');
 const commentRoutes = require('./api/routes/comments');
+const notificationRoutes = require('./api/routes/notifications');
+const NotificationService = require('./services/NotificationService');
+const CommentService = require('./services/CommentService');
+const AccessControlService = require('./services/AccessControlService');
+const { securityHeaders, roleBasedRateLimit } = require('./api/middleware/enhancedSecurityMiddleware');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +36,7 @@ const io = socketIo(server, {
 
 // Middleware Configuration
 app.use(helmet()); // Security headers
+app.use(securityHeaders()); // Enhanced security headers
 app.use(compression()); // Gzip compression
 app.use(cors({
   origin: process.env.FRONTEND_URL || "http://localhost:3000",
@@ -44,6 +50,7 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
+app.use('/api/', roleBasedRateLimit()); // Role-based rate limiting
 
 // Logging
 if (process.env.NODE_ENV !== 'test') {
@@ -70,6 +77,7 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/physiotherapists', physiotherapistRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/comments', commentRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Socket.io for real-time features
 io.on('connection', (socket) => {
@@ -104,13 +112,33 @@ io.on('connection', (socket) => {
     socket.to(data.room).emit('reply-added', data);
   });
 
+  // Handle notification events
+  socket.on('notification-read', (data) => {
+    socket.to(data.room).emit('notification-status-changed', data);
+  });
+
+  socket.on('notification-dismissed', (data) => {
+    socket.to(data.room).emit('notification-status-changed', data);
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });
 });
 
-// Make io available to routes
+// Initialize services
+const notificationService = new NotificationService(io);
+const commentService = CommentService;
+const accessControlService = new AccessControlService();
+
+// Connect services
+commentService.setNotificationService(notificationService);
+
+// Make services available to routes
 app.set('io', io);
+app.set('notificationService', notificationService);
+app.set('commentService', commentService);
+app.set('accessControlService', accessControlService);
 
 // 404 handler
 app.use('*', (req, res) => {

@@ -3,7 +3,6 @@ const router = express.Router();
 const { authenticate } = require('../middleware/authMiddleware');
 const { requireRoles } = require('../middleware/roleMiddleware');
 const { validateQuery, validateParams, validateBody } = require('../middleware/validationMiddleware');
-const commentService = require('../../services/CommentService');
 
 router.use(authenticate);
 
@@ -22,6 +21,7 @@ router.post('/', validateBody([
   'commentType'
 ]), async (req, res) => {
   try {
+    const commentService = req.app.get('commentService');
     const result = await commentService.createComment(req.user.id, req.body);
     res.status(201).json(result);
   } catch (error) {
@@ -48,6 +48,7 @@ router.get('/:targetType/:targetId', validateParams(['targetType', 'targetId']),
       visibility: req.query.visibility
     };
 
+    const commentService = req.app.get('commentService');
     const result = await commentService.getThreadedComments(
       req.params.targetType,
       req.params.targetId,
@@ -70,6 +71,7 @@ router.get('/:targetType/:targetId', validateParams(['targetType', 'targetId']),
 // @access  Private (All authenticated users)
 router.get('/:commentId', validateParams(['commentId']), async (req, res) => {
   try {
+    const commentService = req.app.get('commentService');
     const result = await commentService.getCommentById(req.params.commentId, req.user.id);
     res.status(200).json(result);
   } catch (error) {
@@ -86,6 +88,7 @@ router.get('/:commentId', validateParams(['commentId']), async (req, res) => {
 // @access  Private (Comment author or authorized roles)
 router.put('/:commentId', validateParams(['commentId']), validateBody(['content']), async (req, res) => {
   try {
+    const commentService = req.app.get('commentService');
     const result = await commentService.editComment(
       req.params.commentId,
       req.user.id,
@@ -107,6 +110,7 @@ router.put('/:commentId', validateParams(['commentId']), validateBody(['content'
 // @access  Private (Comment author or authorized roles)
 router.delete('/:commentId', validateParams(['commentId']), async (req, res) => {
   try {
+    const commentService = req.app.get('commentService');
     const result = await commentService.deleteComment(req.params.commentId, req.user.id);
     res.status(200).json(result);
   } catch (error) {
@@ -126,6 +130,7 @@ router.post('/:commentId/reply', validateParams(['commentId']), validateBody([
   'commentType'
 ]), async (req, res) => {
   try {
+    const commentService = req.app.get('commentService');
     const result = await commentService.replyToComment(
       req.params.commentId,
       req.user.id,
@@ -146,6 +151,7 @@ router.post('/:commentId/reply', validateParams(['commentId']), validateBody([
 // @access  Private (All authenticated users)
 router.post('/:commentId/reactions', validateParams(['commentId']), validateBody(['type']), async (req, res) => {
   try {
+    const commentService = req.app.get('commentService');
     const result = await commentService.addReaction(
       req.params.commentId,
       req.user.id,
@@ -166,6 +172,7 @@ router.post('/:commentId/reactions', validateParams(['commentId']), validateBody
 // @access  Private (All authenticated users)
 router.delete('/:commentId/reactions', validateParams(['commentId']), async (req, res) => {
   try {
+    const commentService = req.app.get('commentService');
     const result = await commentService.removeReaction(req.params.commentId, req.user.id);
     res.status(200).json(result);
   } catch (error) {
@@ -182,6 +189,7 @@ router.delete('/:commentId/reactions', validateParams(['commentId']), async (req
 // @access  Private (All authenticated users)
 router.post('/:commentId/read', validateParams(['commentId']), async (req, res) => {
   try {
+    const commentService = req.app.get('commentService');
     const result = await commentService.markAsRead(req.params.commentId, req.user.id);
     res.status(200).json(result);
   } catch (error) {
@@ -198,6 +206,7 @@ router.post('/:commentId/read', validateParams(['commentId']), async (req, res) 
 // @access  Private (All authenticated users)
 router.post('/:commentId/flag', validateParams(['commentId']), validateBody(['reason']), async (req, res) => {
   try {
+    const commentService = req.app.get('commentService');
     const result = await commentService.flagComment(
       req.params.commentId,
       req.user.id,
@@ -225,6 +234,7 @@ router.get('/unread', async (req, res) => {
       commentType: req.query.commentType
     };
 
+    const commentService = req.app.get('commentService');
     const result = await commentService.getUnreadComments(req.user.id, options);
     res.status(200).json(result);
   } catch (error) {
@@ -247,6 +257,7 @@ router.get('/requiring-response', requireRoles(['physiotherapist', 'doctor']), a
       limit: parseInt(req.query.limit) || 50
     };
 
+    const commentService = req.app.get('commentService');
     const result = await commentService.getCommentsRequiringResponse(req.user.id, options);
     res.status(200).json(result);
   } catch (error) {
@@ -266,7 +277,8 @@ router.get('/analytics/:targetType/:targetId',
   validateParams(['targetType', 'targetId']),
   async (req, res) => {
     try {
-      const result = await commentService.getDiscussionAnalytics(
+      const commentService = req.app.get('commentService');
+    const result = await commentService.getDiscussionAnalytics(
         req.params.targetType,
         req.params.targetId,
         req.user.id
@@ -300,6 +312,7 @@ router.get('/search', validateQuery(), async (req, res) => {
       sortBy: req.query.sortBy || 'relevance'
     };
 
+    const commentService = req.app.get('commentService');
     const result = await commentService.searchComments(req.user.id, options);
     res.status(200).json(result);
   } catch (error) {
@@ -316,6 +329,7 @@ router.get('/search', validateQuery(), async (req, res) => {
 // @access  Private (All authenticated users)
 router.post('/bulk-read', validateBody(['commentIds']), async (req, res) => {
   try {
+    const commentService = req.app.get('commentService');
     const result = await commentService.bulkMarkAsRead(req.body.commentIds, req.user.id);
     res.status(200).json(result);
   } catch (error) {
@@ -344,7 +358,8 @@ router.get('/user/:userId',
         commentType: req.query.commentType
       };
 
-      const result = await commentService.getCommentsByUser(
+      const commentService = req.app.get('commentService');
+    const result = await commentService.getCommentsByUser(
         req.params.userId,
         req.user.id,
         options
@@ -368,7 +383,8 @@ router.put('/:commentId/resolve',
   validateParams(['commentId']),
   async (req, res) => {
     try {
-      const result = await commentService.resolveComment(req.params.commentId, req.user.id);
+      const commentService = req.app.get('commentService');
+    const result = await commentService.resolveComment(req.params.commentId, req.user.id);
       res.status(200).json(result);
     } catch (error) {
       res.status(400).json({
