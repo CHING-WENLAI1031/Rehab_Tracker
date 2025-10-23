@@ -295,16 +295,42 @@ router.get('/providers', async (req, res) => {
 // @route   POST /api/patients/notes
 // @desc    Add personal note/reflection
 // @access  Private (Patient only)
-router.post('/notes', async (req, res) => {
+router.post('/notes', validateBody(['content']), async (req, res) => {
   try {
-    // TODO: Implement add note logic
+    const Comment = require('../../models/Comment');
+
+    // Patient notes are stored as comments with special type
+    const note = new Comment({
+      author: req.user.id,
+      content: req.body.content,
+      commentType: 'patient_note',
+      targetType: 'patient',
+      targetId: req.user.id,
+      relatedPatient: req.user.id,
+      visibility: req.body.visibility || 'patient_only',
+      visibleTo: [{
+        user: req.user.id,
+        role: 'patient'
+      }],
+      priority: 'low',
+      tags: req.body.tags || [],
+      metadata: {
+        mood: req.body.mood || null,
+        category: req.body.category || 'general',
+        isPrivate: req.body.isPrivate !== false
+      }
+    });
+
+    const savedNote = await note.save();
+    const populatedNote = await Comment.findById(savedNote._id)
+      .populate('author', 'firstName lastName');
+
     res.status(201).json({
       success: true,
-      message: 'Add patient note endpoint - Coming soon',
       data: {
-        endpoint: 'POST /api/patients/notes',
-        status: 'Not implemented yet'
-      }
+        note: populatedNote
+      },
+      message: 'Note added successfully'
     });
   } catch (error) {
     res.status(500).json({
@@ -318,15 +344,53 @@ router.post('/notes', async (req, res) => {
 // @route   GET /api/patients/notes
 // @desc    Get patient's personal notes
 // @access  Private (Patient only)
-router.get('/notes', async (req, res) => {
+router.get('/notes', validateQuery(), async (req, res) => {
   try {
-    // TODO: Implement get notes logic
+    const Comment = require('../../models/Comment');
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const query = {
+      author: req.user.id,
+      commentType: 'patient_note',
+      relatedPatient: req.user.id
+    };
+
+    // Optional filters
+    if (req.query.category) {
+      query['metadata.category'] = req.query.category;
+    }
+
+    if (req.query.dateFrom || req.query.dateTo) {
+      query.createdAt = {};
+      if (req.query.dateFrom) query.createdAt.$gte = new Date(req.query.dateFrom);
+      if (req.query.dateTo) query.createdAt.$lte = new Date(req.query.dateTo);
+    }
+
+    const [notes, totalCount] = await Promise.all([
+      Comment.find(query)
+        .populate('author', 'firstName lastName')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Comment.countDocuments(query)
+    ]);
+
+    const totalPages = Math.ceil(totalCount / limit);
+
     res.status(200).json({
       success: true,
-      message: 'Get patient notes endpoint - Coming soon',
       data: {
-        endpoint: 'GET /api/patients/notes',
-        status: 'Not implemented yet'
+        notes,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalCount,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1
+        }
       }
     });
   } catch (error) {

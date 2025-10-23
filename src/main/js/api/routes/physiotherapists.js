@@ -218,15 +218,48 @@ router.get('/patients', async (req, res) => {
 // @route   GET /api/physiotherapists/patients/:patientId
 // @desc    Get specific patient details and progress
 // @access  Private (Physiotherapist only)
-router.get('/patients/:patientId', async (req, res) => {
+router.get('/patients/:patientId', validateParams(['patientId']), async (req, res) => {
   try {
-    // TODO: Implement get patient details logic
+    // Verify patient is assigned to this physiotherapist
+    const physiotherapist = await User.findById(req.user.id);
+    if (!physiotherapist.assignedPatients.some(p => p.toString() === req.params.patientId)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied',
+        message: 'Patient is not assigned to you'
+      });
+    }
+
+    // Get patient details
+    const patient = await User.findById(req.params.patientId)
+      .populate('assignedProviders.providerId', 'firstName lastName role specialization')
+      .select('-password -tokens');
+
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({
+        success: false,
+        error: 'Patient not found'
+      });
+    }
+
+    // Get active and recent tasks
+    const [activeTasks, recentTasks, recentProgress] = await Promise.all([
+      rehabService.getTasksForPatient(req.params.patientId, { active: 'true', limit: 10 }),
+      rehabService.getTasksForPatient(req.params.patientId, { limit: 5, sortBy: 'updatedAt', sortOrder: 'desc' }),
+      progressService.getProgressHistory(req.params.patientId, { limit: 10 })
+    ]);
+
+    // Get progress analytics
+    const analytics = await progressService.getProgressAnalytics(req.params.patientId, {});
+
     res.status(200).json({
       success: true,
-      message: 'Get patient details endpoint - Coming soon',
       data: {
-        endpoint: `GET /api/physiotherapists/patients/${req.params.patientId}`,
-        status: 'Not implemented yet'
+        patient,
+        activeTasks: activeTasks.data?.tasks || [],
+        recentTasks: recentTasks.data?.tasks || [],
+        recentProgress: recentProgress.data?.sessions || [],
+        analytics: analytics.data || {}
       }
     });
   } catch (error) {
@@ -337,16 +370,82 @@ router.post('/tasks/:taskId/activate', async (req, res) => {
 // @route   POST /api/physiotherapists/feedback
 // @desc    Add feedback comment for patient
 // @access  Private (Physiotherapist only)
-router.post('/feedback', async (req, res) => {
+router.post('/feedback', validateBody([
+  'patientId',
+  'content'
+]), async (req, res) => {
   try {
-    // TODO: Implement add feedback logic
+    // Verify patient is assigned to this physiotherapist
+    const physiotherapist = await User.findById(req.user.id);
+    if (!physiotherapist.assignedPatients.some(p => p.toString() === req.body.patientId)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied',
+        message: 'Patient is not assigned to you'
+      });
+    }
+
+    const Comment = require('../../models/Comment');
+
+    // Create feedback comment
+    const feedback = new Comment({
+      author: req.user.id,
+      content: req.body.content,
+      commentType: req.body.commentType || 'feedback',
+      targetType: req.body.targetType || 'patient',
+      targetId: req.body.targetId || req.body.patientId,
+      relatedPatient: req.body.patientId,
+      visibility: req.body.visibility || 'patient_visible',
+      visibleTo: [
+        {
+          user: req.body.patientId,
+          role: 'patient'
+        },
+        {
+          user: req.user.id,
+          role: 'physiotherapist'
+        }
+      ],
+      priority: req.body.priority || 'normal',
+      tags: req.body.tags || [],
+      metadata: {
+        feedbackType: req.body.feedbackType || 'general',
+        category: req.body.category || 'progress_review',
+        requiresResponse: req.body.requiresResponse || false
+      }
+    });
+
+    const savedFeedback = await feedback.save();
+    const populatedFeedback = await Comment.findById(savedFeedback._id)
+      .populate('author', 'firstName lastName role specialization')
+      .populate('relatedPatient', 'firstName lastName');
+
+    // Create notification for patient
+    const notificationService = req.app.get('notificationService');
+    if (notificationService) {
+      await notificationService.createNotification({
+        recipient: req.body.patientId,
+        sender: req.user.id,
+        type: 'feedback_request',
+        category: 'communication',
+        title: 'New Feedback from Your Physiotherapist',
+        message: `Your physiotherapist has provided feedback on your progress`,
+        priority: 'normal',
+        actionUrl: `/feedback/${savedFeedback._id}`,
+        actionText: 'View Feedback',
+        relatedEntity: {
+          entityType: 'comment',
+          entityId: savedFeedback._id
+        }
+      });
+    }
+
     res.status(201).json({
       success: true,
-      message: 'Add feedback endpoint - Coming soon',
       data: {
-        endpoint: 'POST /api/physiotherapists/feedback',
-        status: 'Not implemented yet'
-      }
+        feedback: populatedFeedback
+      },
+      message: 'Feedback added successfully'
     });
   } catch (error) {
     res.status(500).json({
