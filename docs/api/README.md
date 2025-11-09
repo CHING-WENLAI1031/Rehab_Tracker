@@ -50,32 +50,71 @@ All API responses follow a consistent format:
 - `POST /api/auth/refresh` - Refresh JWT token
 
 ### Patient Endpoints
-- `GET /api/patients/dashboard` - Patient dashboard data
-- `GET /api/patients/schedule` - Get rehab schedule
-- `POST /api/patients/checkin` - Check-in exercise completion
+**[View Detailed Patient API Documentation](./patients.md)**
+
+Summary of key endpoints:
+- `GET /api/patients/dashboard` - Comprehensive dashboard with analytics
+- `GET /api/patients/tasks` - Get rehab tasks
+- `GET /api/patients/tasks/:taskId` - Get specific task details
+- `GET /api/patients/upcoming` - Get upcoming tasks
+- `POST /api/patients/tasks/:taskId/notes` - Add task notes
+- `POST /api/patients/notes` - Add personal note/reflection
+- `GET /api/patients/notes` - Get personal notes with pagination
+- `POST /api/patients/progress` - Record exercise session
 - `GET /api/patients/progress` - Get progress history
-- `POST /api/patients/notes` - Add personal note
-- `GET /api/patients/notes` - Get personal notes
+- `GET /api/patients/analytics` - Get progress analytics
+- `GET /api/patients/providers` - Get assigned providers
 
 ### Physiotherapist Endpoints
+**[View Detailed Physiotherapist API Documentation](./physiotherapists.md)**
+
+Summary of key endpoints:
 - `GET /api/physiotherapists/dashboard` - Physiotherapist dashboard
-- `GET /api/physiotherapists/patients` - Get assigned patients
-- `GET /api/physiotherapists/patients/:id` - Get patient details
+- `GET /api/physiotherapists/patients` - Get assigned patients list
+- `GET /api/physiotherapists/patients/:patientId` - Get patient details with analytics
+- `POST /api/physiotherapists/feedback` - Provide patient feedback
 - `POST /api/physiotherapists/schedule` - Create rehab schedule
 - `PUT /api/physiotherapists/schedule/:id` - Update schedule
-- `POST /api/physiotherapists/feedback` - Add patient feedback
 - `GET /api/physiotherapists/analytics` - Get analytics data
 
 ### Doctor Endpoints
-- `GET /api/doctors/dashboard` - Doctor dashboard
+**[View Detailed Doctor API Documentation](./doctors.md)**
+
+Summary of key endpoints:
+- `GET /api/doctors/dashboard` - Doctor dashboard with overview
 - `GET /api/doctors/patients` - Get all patients overview
-- `GET /api/doctors/patients/:id/recovery` - Get recovery progress
+- `GET /api/doctors/patients/:patientId/recovery` - Get patient recovery progress
 - `POST /api/doctors/annotations` - Add medical annotation
-- `POST /api/doctors/surgery-records` - Add surgery record
-- `GET /api/doctors/surgery-records/:id` - Get surgery records
-- `PUT /api/doctors/surgery-records/:id` - Update surgery record
-- `POST /api/doctors/recommendations` - Add recommendation
-- `GET /api/doctors/analytics/overview` - Get analytics overview
+- `POST /api/doctors/surgery-records` - Create surgery record
+- `GET /api/doctors/surgery-records/:patientId` - Get patient surgery records
+- `PUT /api/doctors/surgery-records/:recordId` - Update surgery record
+- `POST /api/doctors/recommendations` - Create clinical recommendation
+- `GET /api/doctors/analytics/overview` - Get comprehensive analytics
+
+### Notification Endpoints
+**[View Detailed Notification API Documentation](./notifications.md)** *(Coming Soon)*
+
+Summary of key endpoints:
+- `GET /api/notifications` - Get user notifications with pagination
+- `GET /api/notifications/unread-count` - Get unread notification count
+- `GET /api/notifications/statistics` - Get notification statistics
+- `PUT /api/notifications/:notificationId/read` - Mark notification as read
+- `PUT /api/notifications/mark-all-read` - Mark all notifications as read
+- `DELETE /api/notifications/:notificationId` - Dismiss notification
+
+### Comment System Endpoints
+- `POST /api/comments` - Create comment
+- `GET /api/comments/:targetType/:targetId` - Get threaded comments
+- `GET /api/comments/:commentId` - Get specific comment
+- `PUT /api/comments/:commentId` - Edit comment
+- `DELETE /api/comments/:commentId` - Delete comment
+- `POST /api/comments/:commentId/reply` - Reply to comment
+- `POST /api/comments/:commentId/reactions` - Add reaction
+- `DELETE /api/comments/:commentId/reactions` - Remove reaction
+- `POST /api/comments/:commentId/read` - Mark comment as read
+- `GET /api/comments/unread` - Get unread comments
+- `GET /api/comments/search` - Search comments
+- `PUT /api/comments/:commentId/resolve` - Resolve comment
 
 ## Status Codes
 - `200` - Success
