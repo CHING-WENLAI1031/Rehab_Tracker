@@ -168,9 +168,20 @@ function TestPage() {
           >
             Test Login (Save Token)
           </Button>
-          <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-            Default: patient@test.com / password123
-          </Typography>
+          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'grey.100', borderRadius: 1 }}>
+            <Typography variant="caption" display="block" fontWeight="bold">
+              Available Test Accounts:
+            </Typography>
+            <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+              👤 Patient: patient@test.com / password123
+            </Typography>
+            <Typography variant="caption" display="block">
+              🏥 Physiotherapist: physio@test.com / password123
+            </Typography>
+            <Typography variant="caption" display="block">
+              👨‍⚕️ Doctor: doctor@test.com / password123
+            </Typography>
+          </Box>
         </Box>
 
         <Divider sx={{ my: 3 }} />
@@ -265,10 +276,10 @@ function TestPage() {
           <Typography variant="body2" component="div">
             <ol>
               <li>Click "Test Backend Health" - Should show OK status</li>
-              <li>Click "Test Login" - Try logging in (will fail if user doesn't exist)</li>
-              <li>Click "Register New Test User" - Creates a test account</li>
-              <li>After registering, try "Test Login" again - Should succeed!</li>
+              <li>Use one of the test accounts above to login</li>
               <li>After login, try "Get Patient Dashboard" - Should work now!</li>
+              <li>Click "Logout" when done to clear your session</li>
+              <li>Or register a new user with "Register New Test User"</li>
             </ol>
           </Typography>
         </Box>
