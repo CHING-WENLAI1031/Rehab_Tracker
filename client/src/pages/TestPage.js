@@ -141,9 +141,9 @@ function TestPage() {
               setResult(null);
               try {
                 const response = await authAPI.login(email, password);
-                if (response.success && response.data.token) {
+                if (response.success && response.data.tokens && response.data.tokens.accessToken) {
                   // Save token to localStorage
-                  localStorage.setItem('token', response.data.token);
+                  localStorage.setItem('token', response.data.tokens.accessToken);
                   localStorage.setItem('user', JSON.stringify(response.data.user));
                   setIsLoggedIn(true);
                   setUser(response.data.user);
