@@ -12,8 +12,8 @@ import {
   Alert,
   Dialog,
   DialogTitle,
-  DialogContent,
   DialogActions,
+  DialogContent,
   TextField,
   MenuItem,
   Chip,
@@ -22,7 +22,9 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Divider,
+  Divider
+} from '@mui/material';
+import {
   Timeline,
   TimelineItem,
   TimelineSeparator,
@@ -30,7 +32,7 @@ import {
   TimelineContent,
   TimelineDot,
   TimelineOppositeContent
-} from '@mui/material';
+} from '@mui/lab';
 import {
   Add,
   Download,
